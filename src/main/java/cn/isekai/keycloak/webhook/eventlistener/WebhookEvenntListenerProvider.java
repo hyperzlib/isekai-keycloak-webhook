@@ -55,9 +55,6 @@ public class WebhookEvenntListenerProvider implements EventListenerProvider {
     private final ClientConnection clientConnection;
     private static final int cacheExpires = 5000;
 
-    private String[] cachedWebhookList = null;
-    private long cachedWebhookListExpires = 0;
-
     private final static HttpRequestRetryHandler httpRequestRetryHandler = (exception, executionCount, context) -> {
         if (executionCount >= 5) {// 如果已经重试了5次，就放弃
             return false;
@@ -98,9 +95,7 @@ public class WebhookEvenntListenerProvider implements EventListenerProvider {
 
     public String[] getWebhookList(RealmModel realm) {
         long currentTime = new Date().getTime();
-        if (cachedWebhookList != null && currentTime < cachedWebhookListExpires) {
-            return cachedWebhookList;
-        }
+
         UserStorageProviderModel userStorage = realm.getUserStorageProvidersStream()
                 .filter(model -> model.getProviderId().equals("webhook"))
                 .findFirst().orElse(null);
@@ -109,8 +104,7 @@ public class WebhookEvenntListenerProvider implements EventListenerProvider {
             MultivaluedHashMap<String, String> configMap = userStorage.getConfig();
             List<String> webhookList = configMap.getList("webhook-list");
             if (webhookList != null) {
-                cachedWebhookList = webhookList.toArray(new String[0]);
-                cachedWebhookListExpires = currentTime + cacheExpires;
+                return webhookList.toArray(new String[0]);
             }
         }
         return new String[0];
@@ -133,15 +127,13 @@ public class WebhookEvenntListenerProvider implements EventListenerProvider {
             if (event.getRealmId() != null && event.getUserId() != null) {
                 ObjectMapper mapper = new ObjectMapper();
 
-                if (event.getType() == EventType.UPDATE_PROFILE) {
-                    // 增加用户信息
-                    try {
-                        Map<String, Object> userInfo = getUserInfo(event);
-                        String userInfoJson = mapper.writeValueAsString(userInfo);
-                        event.getDetails().put("user_info", userInfoJson);
-                    } catch (Exception e) {
-                        logger.error("Cannot get user info", e);
-                    }
+                // 增加用户信息
+                try {
+                    Map<String, Object> userInfo = getUserInfo(event);
+                    String userInfoJson = mapper.writeValueAsString(userInfo);
+                    event.getDetails().put("user_info", userInfoJson);
+                } catch (Exception e) {
+                    logger.error("Cannot get user info", e);
                 }
 
                 tx.addEvent(event);
@@ -211,7 +203,7 @@ public class WebhookEvenntListenerProvider implements EventListenerProvider {
 
     private Map<String, Object> getUserInfo(Event event) {
         RealmModel realm = session.realms().getRealm(event.getRealmId());
-        ClientModel client = realm.getMasterAdminClient();
+        ClientModel client = realm.getClientByClientId("account");
         UserModel user = session.users().getUserById(realm, event.getUserId());
         return sessionAware(realm, client, user, (userSession, clientSessionCtx) -> {
             AccessToken userInfo = new AccessToken();
