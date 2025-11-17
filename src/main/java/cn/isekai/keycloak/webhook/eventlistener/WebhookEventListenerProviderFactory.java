@@ -15,12 +15,23 @@ public class WebhookEventListenerProviderFactory implements EventListenerProvide
     private static final Set<EventType> includedEvents = new HashSet<>();
 
     static {
-        Collections.addAll(includedEvents, EventType.UPDATE_PASSWORD, EventType.UPDATE_EMAIL, EventType.UPDATE_PROFILE, EventType.LOGIN, EventType.LOGOUT);
+        Collections.addAll(
+                includedEvents,
+                EventType.UPDATE_EMAIL,
+                EventType.UPDATE_PROFILE,
+                EventType.UPDATE_CONSENT,
+                EventType.UPDATE_CREDENTIAL,
+                EventType.REMOVE_CREDENTIAL,
+                EventType.DELETE_ACCOUNT,
+                EventType.REGISTER,
+                EventType.LOGIN,
+                EventType.LOGOUT
+        );
     }
 
     @Override
     public EventListenerProvider create(KeycloakSession session) {
-        return new WebhookEvenntListenerProvider(session, includedEvents);
+        return new WebhookEventListenerProvider(session, includedEvents);
     }
 
     @Override
